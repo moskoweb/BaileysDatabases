@@ -1,8 +1,8 @@
 import { MongoClient } from 'mongodb';
 import { BufferJSON, initAuthCreds, proto } from '@adiwajshing/baileys';
 
-export async function databaseConnect() {
-	let client = new MongoClient(process.env.MONGODB_URI)
+export async function databaseConnect(uri?: string) {
+	let client = new MongoClient(uri)
 
 	await client.connect()
 
