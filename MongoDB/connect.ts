@@ -1,12 +1,12 @@
+import { AuthenticationCreds, BufferJSON, initAuthCreds, proto } from '@adiwajshing/baileys';
 import { MongoClient } from 'mongodb';
-import { BufferJSON, initAuthCreds, proto } from '@adiwajshing/baileys';
 
-export async function databaseConnect(uri?: string) {
+export async function databaseConnect(uri: string) {
 	let client = new MongoClient(uri)
 
 	await client.connect()
 
-	return client;
+	return client
 }
 
 export class databaseManager {
@@ -21,13 +21,14 @@ export class databaseManager {
 			{ _id: id },
 			JSON.parse(JSON.stringify(data, BufferJSON.replacer)),
 			{ upsert: true }
-		)
+		);
 	}
 
 	readData = async (id: any) => {
 		try {
-			const data = JSON.stringify(await this.collection.findOne({ _id: id }))
-			return JSON.parse(data, BufferJSON.reviver)
+			return JSON.parse(JSON.stringify(
+				await this.collection.findOne({ _id: id })
+			), BufferJSON.reviver)
 		} catch (error) {
 			return null
 		}
@@ -41,7 +42,7 @@ export class databaseManager {
 export async function useMongoDBAuthState(collection: any) {
 	var database = new databaseManager(collection);
 
-	const creds = await database.readData('creds') ?? initAuthCreds();
+	const creds: AuthenticationCreds = await database.readData('creds') || initAuthCreds()
 
 	return {
 		state: {
@@ -52,34 +53,39 @@ export async function useMongoDBAuthState(collection: any) {
 					await Promise.all(
 						ids.map(async (id: any) => {
 							let value = await database.readData(`${type}-${id}`)
-							if (type === 'app-state-sync-key') {
-								value =
-									proto.Message.AppStateSyncKeyData.fromObject(data)
+							if (type === 'app-state-sync-key' && value) {
+								value = proto.Message.AppStateSyncKeyData.fromObject(value)
 							}
+
 							data[id] = value
 						})
 					)
+
 					return data
 				},
 
 				set: async (data: any) => {
-					const tasks = []
-					for (const category of Object.keys(data)) {
-						for (const id of Object.keys(data[category])) {
+					const tasks: Promise<void>[] = []
+					for (const category in data) {
+						for (const id in data[category]) {
 							const value = data[category][id]
 							const key = `${category}-${id}`
+
 							tasks.push(
-								value ? database.writeData(value, key) : database.removeData(key)
+								value
+									? database.writeData(value, key)
+									: database.removeData(key)
 							)
 						}
 					}
+
 					await Promise.all(tasks)
 				},
 			},
 		},
 
 		saveCreds: () => {
-			return database.writeData(creds, 'creds')
+			return database.writeData(creds, 'creds');
 		},
 	}
 }
